@@ -574,14 +574,32 @@ function parseCSV(text){
   }).filter(p => p.name);
 }
 
+let catalogRequest = null;
 async function loadGoogleSheet(){
-  try{
-    const response = await fetch(GOOGLE_SHEETS_CSV + '&_=' + Date.now(), {cache:'no-store', headers:{'Cache-Control':'no-cache'}});
-    if(!response.ok) throw new Error('No se pudo cargar el CSV');
-    const remoteProducts = parseCSV(await response.text());
-    if(remoteProducts.length){ products = remoteProducts; renderProducts(); updateCartUI(); showToast('Catálogo actualizado'); }
-  }catch(error){ console.warn('[Prestige Lab] No se pudo actualizar el catálogo:', error.message); }
+  if(catalogRequest) return catalogRequest;
+  catalogRequest = (async function(){
+    try{
+      const url = new URL(GOOGLE_SHEETS_CSV);
+      url.searchParams.set('_catalog_refresh', String(Date.now()));
+      // No agregamos headers personalizados: Google Sheets responde con CORS simple.
+      const response = await fetch(url.toString(), {cache:'no-store', credentials:'omit'});
+      if(!response.ok) throw new Error('HTTP ' + response.status);
+      const csvText = await response.text();
+      const remoteProducts = parseCSV(csvText);
+      // El catálogo remoto es la fuente de verdad, incluso cuando llega vacío.
+      products = remoteProducts;
+      renderProducts();
+      updateCartUI();
+      showToast(remoteProducts.length ? 'Catálogo actualizado' : 'Catálogo vacío');
+    }catch(error){
+      console.warn('[Prestige Lab] No se pudo actualizar el catálogo:', error.message);
+    }finally{
+      catalogRequest = null;
+    }
+  })();
+  return catalogRequest;
 }
+loadGoogleSheet();
 setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
 
 /* ---------------- SVG ICONS (genéricos, sin marcas) ---------------- */
