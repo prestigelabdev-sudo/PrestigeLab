@@ -619,6 +619,8 @@ async function loadGoogleSheet(){
   })();
   return catalogRequest;
 }
+  // Primera consulta inmediata; después se mantiene sincronizado cada 10 segundos.
+  loadGoogleSheet();
   window.catalogRefreshTimer = window.setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
 
 /* ---------------- SVG ICONS (genéricos, sin marcas) ---------------- */
