@@ -564,7 +564,7 @@ if(initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("es-CO");
 const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?output=csv";
-  const CATALOG_REFRESH_MS = 10000;
+  const CATALOG_REFRESH_MS = 60000;
   // Evita que un service worker o Cache Storage entregue un catálogo anterior.
   const browserCacheReady = (async function clearStaleBrowserCaches(){
     try{
