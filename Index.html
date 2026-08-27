@@ -550,7 +550,7 @@ const initialProductGrid = document.getElementById('productGrid');
 if(initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = n => "$" + Number(n || 0).toLocaleString("es-CO");
-const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?gid=0&single=true&output=csv";
+const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/gviz/tq?tqx=out:csv&gid=0";
   const CATALOG_REFRESH_MS = 10000;
   // Evita que un service worker o Cache Storage entregue un catálogo anterior.
   const browserCacheReady = (async function clearStaleBrowserCaches(){
@@ -591,9 +591,11 @@ function parseCSV(text){
 }
 
 let catalogRequest = null;
+let catalogSequence = 0;
 async function loadGoogleSheet(){
   if(catalogRequest) return catalogRequest;
   await browserCacheReady;
+  const requestSequence = ++catalogSequence;
   catalogRequest = (async function(){
     try{
       // Cache-busting en cada petición. Google Sheets puede ignorar algunos parámetros,
@@ -604,6 +606,7 @@ async function loadGoogleSheet(){
       if(!response.ok) throw new Error('HTTP ' + response.status);
       const csvText = await response.text();
       const remoteProducts = parseCSV(csvText);
+      if(requestSequence !== catalogSequence) return;
       products = remoteProducts;
       renderProducts();
       updateCartUI();
@@ -616,8 +619,7 @@ async function loadGoogleSheet(){
   })();
   return catalogRequest;
 }
-loadGoogleSheet();
-window.catalogRefreshTimer = window.setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
+  window.catalogRefreshTimer = window.setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
 
 /* ---------------- SVG ICONS (genéricos, sin marcas) ---------------- */
 function garmentSVG(type){
