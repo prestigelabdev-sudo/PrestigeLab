@@ -545,6 +545,9 @@
 <script>
 /* ---------------- DATA ---------------- */
 let products = [];
+// Nunca mostramos el HTML inicial ni un catálogo anterior mientras se comprueba el CSV.
+const initialProductGrid = document.getElementById('productGrid');
+if(initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = n => "$" + Number(n || 0).toLocaleString("es-CO");
 const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?gid=0&single=true&output=csv";
@@ -575,7 +578,6 @@ function parseCSV(text){
 }
 
 let catalogRequest = null;
-let lastCatalogText = '';
 async function loadGoogleSheet(){
   if(catalogRequest) return catalogRequest;
   catalogRequest = (async function(){
@@ -584,12 +586,10 @@ async function loadGoogleSheet(){
       // por eso usamos un valor aleatorio y cache: reload además de no-store.
       const url = new URL(GOOGLE_SHEETS_CSV);
       url.searchParams.set('_v', Date.now() + '-' + Math.random().toString(36).slice(2));
-      const response = await fetch(url.href, {method:'GET', cache:'reload', credentials:'omit'});
+      const response = await fetch(url.href, {method:'GET', cache:'no-store', credentials:'omit', headers:{'Pragma':'no-cache'}});
       if(!response.ok) throw new Error('HTTP ' + response.status);
       const csvText = await response.text();
-      if(csvText === lastCatalogText) return;
       const remoteProducts = parseCSV(csvText);
-      lastCatalogText = csvText;
       products = remoteProducts;
       renderProducts();
       updateCartUI();
