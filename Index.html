@@ -645,7 +645,12 @@ function garmentSVG(type){
 const catBg = {hombre:'g-hombre', mujer:'g-mujer', casual:'g-casual', accesorio:'g-accesorio'};
 
 /* ---------------- STATE ---------------- */
-let cart = JSON.parse(localStorage.getItem('prestige-lab-cart') || '{}');
+let cart = {};
+try {
+  cart = JSON.parse(localStorage.getItem('prestige-lab-cart') || '{}');
+} catch (error) {
+  console.warn('[Prestige Lab] No se pudo leer el carrito:', error.message);
+}
 let currentFilter = 'all';
 let searchTerm = '';
 
@@ -752,7 +757,11 @@ function cartCount(){
 }
 
 function updateCartUI(){
-  localStorage.setItem('prestige-lab-cart', JSON.stringify(cart));
+  try {
+    localStorage.setItem('prestige-lab-cart', JSON.stringify(cart));
+  } catch (error) {
+    console.warn('[Prestige Lab] No se pudo guardar el carrito:', error.message);
+  }
   document.getElementById('cartCount').textContent = cartCount();
   document.getElementById('cartTotal').textContent = money(cartTotal());
 
