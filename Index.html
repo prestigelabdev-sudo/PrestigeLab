@@ -575,18 +575,21 @@ function parseCSV(text){
 }
 
 let catalogRequest = null;
+let lastCatalogText = '';
 async function loadGoogleSheet(){
   if(catalogRequest) return catalogRequest;
   catalogRequest = (async function(){
     try{
+      // Cache-busting en cada petición. Google Sheets puede ignorar algunos parámetros,
+      // por eso usamos un valor aleatorio y cache: reload además de no-store.
       const url = new URL(GOOGLE_SHEETS_CSV);
-      url.searchParams.set('_catalog_refresh', String(Date.now()));
-      // No agregamos headers personalizados: Google Sheets responde con CORS simple.
-      const response = await fetch(url.toString(), {cache:'no-store', credentials:'omit'});
+      url.searchParams.set('_v', Date.now() + '-' + Math.random().toString(36).slice(2));
+      const response = await fetch(url.href, {method:'GET', cache:'reload', credentials:'omit'});
       if(!response.ok) throw new Error('HTTP ' + response.status);
       const csvText = await response.text();
+      if(csvText === lastCatalogText) return;
       const remoteProducts = parseCSV(csvText);
-      // El catálogo remoto es la fuente de verdad, incluso cuando llega vacío.
+      lastCatalogText = csvText;
       products = remoteProducts;
       renderProducts();
       updateCartUI();
@@ -600,7 +603,7 @@ async function loadGoogleSheet(){
   return catalogRequest;
 }
 loadGoogleSheet();
-setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
+window.catalogRefreshTimer = window.setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
 
 /* ---------------- SVG ICONS (genéricos, sin marcas) ---------------- */
 function garmentSVG(type){
