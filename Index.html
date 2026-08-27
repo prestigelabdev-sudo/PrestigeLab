@@ -551,7 +551,20 @@ if(initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = n => "$" + Number(n || 0).toLocaleString("es-CO");
 const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?gid=0&single=true&output=csv";
-const CATALOG_REFRESH_MS = 10000;
+  const CATALOG_REFRESH_MS = 10000;
+  // Evita que un service worker o Cache Storage entregue un catálogo anterior.
+  const browserCacheReady = (async function clearStaleBrowserCaches(){
+    try{
+      if('serviceWorker' in navigator){
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(function(registration){ return registration.unregister(); }));
+      }
+      if('caches' in window){
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(function(name){ return caches.delete(name); }));
+      }
+    }catch(error){ console.warn('[Prestige Lab] No se pudo limpiar la caché:', error.message); }
+  })();
 
 function parseCSV(text){
   const rows = []; let row = []; let cell = ''; let quoted = false;
@@ -580,6 +593,7 @@ function parseCSV(text){
 let catalogRequest = null;
 async function loadGoogleSheet(){
   if(catalogRequest) return catalogRequest;
+  await browserCacheReady;
   catalogRequest = (async function(){
     try{
       // Cache-busting en cada petición. Google Sheets puede ignorar algunos parámetros,
