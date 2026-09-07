@@ -554,30 +554,50 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-
+<div id="syncBadge" style="position:fixed;bottom:16px;right:16px;z-index:130;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:100px;opacity:.85;pointer-events:none;">Sincronizando…</div>
 <script>
 /* ---------------- DATA ---------------- */
 let products = [];
-// Nunca mostramos el HTML inicial ni un catálogo anterior mientras se comprueba el CSV.
 const initialProductGrid = document.getElementById('productGrid');
-if(initialProductGrid) initialProductGrid.replaceChildren();
+if (initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("es-CO");
 const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?output=csv";
-  const CATALOG_REFRESH_MS = 60000;
-  // Evita que un service worker o Cache Storage entregue un catálogo anterior.
-  const browserCacheReady = (async function clearStaleBrowserCaches(){
-    try{
-      if('serviceWorker' in navigator){
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(function(registration){ return registration.unregister(); }));
-      }
-      if('caches' in window){
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(function(name){ return caches.delete(name); }));
-      }
-    }catch(error){ console.warn('[Prestige Lab] No se pudo limpiar la caché:', error.message); }
-  })();
+const CATALOG_REFRESH_MS = 15000;   // refresco normal
+const CATALOG_RETRY_MS   = 4000;    // reintento rápido si falla
+const FETCH_TIMEOUT_MS   = 8000;    // no dejar una petición colgada
+
+let lastGoodSignature = null; // para no repintar si no cambió nada
+let lastSyncOk = null;
+
+function setSyncBadge(status){
+  const el = document.getElementById('syncBadge');
+  if(!el) return;
+  if(status === 'ok'){
+    el.textContent = 'Catálogo al día · ' + new Date().toLocaleTimeString('es-CO');
+    el.style.color = 'var(--lime)';
+  } else if(status === 'syncing'){
+    el.textContent = 'Sincronizando…';
+    el.style.color = 'var(--muted)';
+  } else {
+    el.textContent = 'Sin conexión con el catálogo, reintentando…';
+    el.style.color = 'var(--coral)';
+  }
+}
+
+// Limpia cachés de navegador/service worker que pudieran servir un catálogo viejo.
+const browserCacheReady = (async function clearStaleBrowserCaches(){
+  try{
+    if('serviceWorker' in navigator){
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(r => r.unregister()));
+    }
+    if('caches' in window){
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(n => caches.delete(n)));
+    }
+  }catch(error){ console.warn('[Prestige Lab] No se pudo limpiar la caché:', error.message); }
+})();
 
 function parseCSV(text){
   const rows = []; let row = []; let cell = ''; let quoted = false;
@@ -594,47 +614,134 @@ function parseCSV(text){
   if(cell || row.length){ row.push(cell.trim()); if(row.some(Boolean)) rows.push(row); }
   if(rows.length < 2) return [];
   const headers = rows.shift().map(h => h.toLowerCase().replace(/^\ufeff/, '').trim());
-  return rows.map((values, index) => {
-    const item = {}; headers.forEach((h, i) => item[h] = values[i] || '');
+
+  function parsePriceCOP(raw){
+    let s = String(raw).replace(/[^0-9.,]/g, '').trim();
+    if(!s) return 0;
+    // Si tiene tanto '.' como ',', el último separador es el decimal, el otro es de miles
+    const lastDot = s.lastIndexOf('.');
+    const lastComma = s.lastIndexOf(',');
+    if(lastDot !== -1 && lastComma !== -1){
+      if(lastComma > lastDot){
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {
+        s = s.replace(/,/g, '');
+      }
+    } else if(lastComma !== -1){
+      // Solo coma: decimal si quedan 1-2 dígitos tras ella, si no es separador de miles
+      const decimals = s.length - lastComma - 1;
+      s = decimals === 1 || decimals === 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+    } else if(lastDot !== -1){
+      // Solo punto: en formato COP suele ser separador de miles (grupos de 3)
+      const decimals = s.length - lastDot - 1;
+      const isThousandsGroup = decimals === 3 && (s.match(/\./g) || []).length >= 1;
+      s = (decimals === 1 || decimals === 2) && !isThousandsGroup ? s : s.replace(/\./g, '');
+    }
+    return Number(s) || 0;
+  }
+
+  return rows.filter(values => values.length >= 1).map((values, index) => {
+    const item = {};
+    headers.forEach((h, i) => { item[h] = values[i] !== undefined ? values[i] : ''; });
     const specs = String(item.specs || item.especificaciones || '').split(/[|;]/).map(s => s.trim()).filter(Boolean);
     const sku = String(item.sku || item.codigo || '').trim();
     const skuCategory = ({H:'hombre', M:'mujer', C:'casual', A:'accesorio'})[sku.split('-')[1]] || '';
-    return {id:sku || String(item.id || index + 1), sku:sku, name:String(item.name || item.nombre || '').trim(), cat:String(item.category || item.categoria || skuCategory).trim().toLowerCase(), price:Number(String(item.price || item.precio || 0).replace(/[^0-9.]/g,'')) || 0, specs:specs.length ? specs : ['Disponible'], tag:item.tag || item.etiqueta || null, icon:item.icon || 'tshirt', image:item.image || item.imagen || '', available:String(item.available || item.disponible || 'true').toLowerCase() !== 'false', stock:{S:Number(item.stock_s || 0), M:Number(item.stock_m || 0), L:Number(item.stock_l || 0), XL:Number(item.stock_xl || 0)}};
+    return {
+      id: sku || String(item.id || index + 1),
+      sku: sku,
+      name: String(item.name || item.nombre || '').trim(),
+      cat: String(item.category || item.categoria || skuCategory).trim().toLowerCase(),
+      price: parsePriceCOP(item.price || item.precio || 0),
+      specs: specs.length ? specs : ['Disponible'],
+      tag: item.tag || item.etiqueta || null,
+      icon: item.icon || 'tshirt',
+      image: item.image || item.imagen || '',
+      available: String(item.available || item.disponible || 'true').toLowerCase() !== 'false',
+      stock: {
+        S: Number(item.stock_s || 0), M: Number(item.stock_m || 0),
+        L: Number(item.stock_l || 0), XL: Number(item.stock_xl || 0)
+      }
+    };
   }).filter(p => p.name);
+}
+
+function signatureOf(list){
+  // Firma barata para saber si algo realmente cambió (evita repintar sin necesidad)
+  try{ return JSON.stringify(list); }catch(e){ return String(Date.now()); }
 }
 
 let catalogRequest = null;
 let catalogSequence = 0;
+let refreshTimer = null;
+
+async function fetchWithTimeout(url, opts, timeoutMs){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try{
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadGoogleSheet(){
   if(catalogRequest) return catalogRequest;
   await browserCacheReady;
   const requestSequence = ++catalogSequence;
+  setSyncBadge('syncing');
+
   catalogRequest = (async function(){
     try{
-      // Cache-busting en cada petición. Google Sheets puede ignorar algunos parámetros,
-      // por eso usamos un valor aleatorio y cache: reload además de no-store.
       const url = new URL(GOOGLE_SHEETS_CSV);
       url.searchParams.set('_v', Date.now() + '-' + Math.random().toString(36).slice(2));
-      const response = await fetch(url.href, {method:'GET', cache:'no-store', credentials:'omit', headers:{'Pragma':'no-cache'}});
+      const response = await fetchWithTimeout(url.href, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+      }, FETCH_TIMEOUT_MS);
+
       if(!response.ok) throw new Error('HTTP ' + response.status);
       const csvText = await response.text();
       const remoteProducts = parseCSV(csvText);
+
+      // Si llegó una respuesta obsoleta (de una petición vieja que respondió tarde), la ignoramos.
       if(requestSequence !== catalogSequence) return;
-      products = remoteProducts;
-      renderProducts();
-      updateCartUI();
-      showToast(remoteProducts.length ? 'Catálogo actualizado' : 'Catálogo vacío');
+
+      // NUNCA vaciamos el catálogo por una respuesta rara o vacía: solo actualizamos
+      // cuando el parseo produjo al menos un producto válido.
+      if(remoteProducts.length === 0){
+        throw new Error('CSV vacío o con formato inesperado');
+      }
+
+      const sig = signatureOf(remoteProducts);
+      lastSyncOk = true;
+      if(sig !== lastGoodSignature){
+        lastGoodSignature = sig;
+        products = remoteProducts;
+        renderProducts();
+        updateCartUI();
+      }
+      setSyncBadge('ok');
+
+      // Volvemos al ritmo normal tras un éxito.
+      if(refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(loadGoogleSheet, CATALOG_REFRESH_MS);
     }catch(error){
       console.warn('[Prestige Lab] No se pudo actualizar el catálogo:', error.message);
+      lastSyncOk = false;
+      setSyncBadge('error');
+      // Reintento rápido, SIN tocar `products` (se conserva el último catálogo bueno).
+      if(refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(loadGoogleSheet, CATALOG_RETRY_MS);
     }finally{
       catalogRequest = null;
     }
   })();
   return catalogRequest;
 }
-  // Primera consulta inmediata; después se mantiene sincronizado cada 10 segundos.
-  loadGoogleSheet();
-  window.catalogRefreshTimer = window.setInterval(loadGoogleSheet, CATALOG_REFRESH_MS);
+
+loadGoogleSheet();
 
 /* ---------------- SVG ICONS (genéricos, sin marcas) ---------------- */
 function garmentSVG(type){
@@ -714,7 +821,7 @@ function filterCat(cat, e){
   renderProducts();
 }
 
-/* ---------------- HEADER NAV: enlaces de categoría (Hombre/Mujer/Casual/Accesorios) ---------------- */
+/* ---------------- HEADER NAV ---------------- */
 function goToCategory(cat, e){
   if(e) e.preventDefault();
   filterCat(cat);
@@ -863,7 +970,7 @@ function checkoutWhatsApp(){
     showToast('Tu carrito está vacío');
     return;
   }
-  const phone = "573202807859"; // Prestige Lab
+  const phone = "573202807859";
   const orderId = "PL-" + Date.now().toString(36).toUpperCase();
   let message = "Hola Prestige Lab, quiero hacer este pedido.\n\nPedido: " + orderId + "\n";
   entries.forEach(function(e){
@@ -875,17 +982,12 @@ function checkoutWhatsApp(){
   window.open(url, "_blank");
 }
 
-/* ---------------- ACCESSIBILITY: reduced motion ---------------- */
+/* ---------------- ACCESSIBILITY ---------------- */
 if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   document.querySelectorAll('#atomSvg animateMotion').forEach(function(anim){
     anim.setAttribute('repeatCount', '0');
   });
 }
-
-/* ---------------- INIT ---------------- */
-renderProducts();
-updateCartUI();
-loadGoogleSheet();
 </script>
 </body>
 </html>
