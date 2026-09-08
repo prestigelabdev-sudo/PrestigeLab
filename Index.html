@@ -562,6 +562,7 @@ const initialProductGrid = document.getElementById('productGrid');
 if (initialProductGrid) initialProductGrid.replaceChildren();
 
 const money = (n) => "$" + Number(n || 0).toLocaleString("es-CO");
+const sizeLabel = (size) => size === 'UNICA' ? 'Talla única' : size;
 const GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTzcjGBgvOMs0rvXEvhFAB05eYrp2OrOwvgM2LXuMObRYb488fLaxMU-AVv1bD9LArTt4vCNcplDjWQ/pub?output=csv";
 const CATALOG_REFRESH_MS = 15000;   // refresco normal
 const CATALOG_RETRY_MS   = 4000;    // reintento rápido si falla
@@ -646,6 +647,8 @@ function parseCSV(text){
     const specs = String(item.specs || item.especificaciones || '').split(/[|;]/).map(s => s.trim()).filter(Boolean);
     const sku = String(item.sku || item.codigo || '').trim();
     const skuCategory = ({H:'hombre', M:'mujer', C:'casual', A:'accesorio'})[sku.split('-')[1]] || '';
+    const uniqueSize = String(item.talla_unica || item.unique_size || '').trim().toLowerCase() === 'true';
+    const uniqueQty = Number(item.stock_s || 0);
     return {
       id: sku || String(item.id || index + 1),
       sku: sku,
@@ -657,10 +660,13 @@ function parseCSV(text){
       icon: item.icon || 'tshirt',
       image: item.image || item.imagen || '',
       available: String(item.available || item.disponible || 'true').toLowerCase() !== 'false',
-      stock: {
-        S: Number(item.stock_s || 0), M: Number(item.stock_m || 0),
-        L: Number(item.stock_l || 0), XL: Number(item.stock_xl || 0)
-      }
+      uniqueSize: uniqueSize,
+      stock: uniqueSize
+        ? { S: uniqueQty, M: uniqueQty, L: uniqueQty, XL: uniqueQty }
+        : {
+            S: Number(item.stock_s || 0), M: Number(item.stock_m || 0),
+            L: Number(item.stock_l || 0), XL: Number(item.stock_xl || 0)
+          }
     };
   }).filter(p => p.name);
 }
@@ -796,7 +802,9 @@ function renderProducts(){
           '<span class="card-cat">' + p.cat + '</span>' +
           '<div class="card-name">' + p.name + '</div>' +
 '<div class="card-specs">' + specsHtml + '</div>' +
-          '<label class="variant-label">Talla <div class="size-options">' + ['S','M','L','XL'].map(function(size, index){ return '<label class="size-option"><input type="radio" name="size-' + p.id + '" value="' + size + '" ' + (index === 0 ? 'checked' : '') + '><span>' + size + '<small>' + (p.stock[size] || 0) + ' disp.</small></span></label>'; }).join('') + '</div></label>' +
+          (p.uniqueSize
+            ? '<label class="variant-label">Talla <div class="size-options"><label class="size-option"><input type="radio" name="size-' + p.id + '" value="UNICA" checked><span>Talla única<small>' + (p.stock.S || 0) + ' disp.</small></span></label></div></label>'
+            : '<label class="variant-label">Talla <div class="size-options">' + ['S','M','L','XL'].map(function(size, index){ return '<label class="size-option"><input type="radio" name="size-' + p.id + '" value="' + size + '" ' + (index === 0 ? 'checked' : '') + '><span>' + size + '<small>' + (p.stock[size] || 0) + ' disp.</small></span></label>'; }).join('') + '</div></label>') +
           '<div class="card-foot">' +
             '<span class="price">' + money(p.price) + '</span>' +
             '<button class="add-btn" id="btn-' + p.id + '" onclick="addToCart(\'' + String(p.id).replace(/'/g, "\\'") + '\')">Añadir</button>' +
@@ -848,11 +856,12 @@ function closeMenu(){
 
 /* ---------------- CART LOGIC ---------------- */
 function addToCart(id){
-  const selected = document.querySelector('input[name="size-' + CSS.escape(String(id)) + '"]:checked');
-  const size = selected ? selected.value : 'M';
   const product = products.find(function(p){ return String(p.id) === String(id); });
   if(!product) return;
-  const availableStock = Number(product.stock && product.stock[size] || 0);
+  const selected = document.querySelector('input[name="size-' + CSS.escape(String(id)) + '"]:checked');
+  const size = selected ? selected.value : (product.uniqueSize ? 'UNICA' : 'M');
+  const stockKey = size === 'UNICA' ? 'S' : size;
+  const availableStock = Number(product.stock && product.stock[stockKey] || 0);
   if(availableStock <= 0){
     showToast('lo lamentamos esta talla no esta disponible por el momento');
     return;
@@ -929,7 +938,7 @@ function updateCartUI(){
         '<div class="drawer-item-media ' + (catBg[p.cat] || '') + '">' + (p.image ? '<img class="product-image" src="' + p.image + '" alt="' + p.name + '">' : garmentSVG(p.icon)) + '</div>' +
         '<div class="drawer-item-body">' +
           '<div class="drawer-item-name">' + p.name + '</div>' +
-'<div class="drawer-item-meta">' + p.cat + ' · Talla ' + e.size + '</div>' +
+'<div class="drawer-item-meta">' + p.cat + ' · ' + (e.size === 'UNICA' ? 'Talla única' : ('Talla ' + e.size)) + '</div>' +
           '<div class="qty-row">' +
             '<button class="qty-btn" onclick="changeQty(\'' + e.key + '\', -1)">−</button>' +
             '<span class="qty-val">' + e.qty + '</span>' +
@@ -975,7 +984,7 @@ function checkoutWhatsApp(){
   let message = "Hola Prestige Lab, quiero hacer este pedido.\n\nPedido: " + orderId + "\n";
   entries.forEach(function(e){
     const sizedSku = (e.product.sku || e.product.id) + '-' + e.size;
-    message += "• " + e.product.name + " · SKU " + sizedSku + " · Talla " + e.size + " x" + e.qty + " — " + money(e.product.price * e.qty) + "\n";
+    message += "• " + e.product.name + " · SKU " + sizedSku + " · " + (e.size === 'UNICA' ? 'Talla única' : ('Talla ' + e.size)) + " x" + e.qty + " — " + money(e.product.price * e.qty) + "\n";
   });
   message += "\nTotal: " + money(cartTotal());
   const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(message);
