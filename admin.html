@@ -81,6 +81,40 @@ main{max-width:1180px;margin:0 auto;padding:24px 28px 80px}
  .row .cat,.row .pr,.row .st{grid-column:2/-1}.row .ed{grid-column:1/-1}.row .ed button{width:100%}
  .g3{grid-template-columns:1fr}
 }
+
+/* pestañas */
+.tabs{display:flex;gap:4px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto}
+.tabs button{padding:12px 16px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--paper);border-color:var(--gold)}
+.badge{background:var(--gold);color:var(--ink);border-radius:9px;padding:0 7px;font-size:12px;font-weight:600;margin-left:4px}
+/* pedidos */
+.ord{border:1px solid var(--line);background:var(--panel);padding:14px 16px;margin-bottom:10px;display:grid;gap:8px}
+.ord.hot{border-color:var(--gold)}
+.oh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}.oh b{font-family:Poppins,sans-serif}
+.pill{border:1px solid var(--line);border-radius:10px;padding:0 9px;font-size:12px}
+.pill.pendiente{border-color:var(--gold);color:var(--gold)}.pill.cerrada{border-color:var(--ok);color:var(--ok)}.pill.cancelada,.pill.devuelta{border-color:var(--bad);color:var(--bad)}
+.oi{color:var(--paper)}.oa{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.oa .tot{margin-right:auto;font-weight:600;font-size:16px}
+/* diálogos */
+dialog{background:var(--panel);color:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:24px;width:min(640px,94vw);margin:auto}
+dialog::backdrop{background:rgba(0,14,35,.75)}
+dialog form,.dg{display:grid;gap:14px}dialog h2{font-size:17px}
+.ck{display:flex;gap:8px;align-items:center;color:var(--muted)}.ck input{width:auto}
+.dgf{display:flex;gap:10px;justify-content:flex-end}
+.vr{display:grid;grid-template-columns:1fr 130px 64px 110px 38px;gap:8px}
+.vtt{text-align:right;color:var(--muted)}.vtt b{color:var(--paper);font-size:16px}
+/* estadísticas */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi{border:1px solid var(--line);background:var(--panel);padding:14px 16px}
+.kpi small{color:var(--muted);display:block}.kpi b{font:700 22px Poppins,sans-serif;display:block;margin:2px 0}.kpi span{font-size:12px;color:var(--muted)}
+.up{color:var(--ok)!important}.dn{color:var(--bad)!important}
+.pan{border:1px solid var(--line);background:var(--panel);padding:16px;margin-bottom:12px}
+.pan h2{font-size:14px;margin-bottom:12px}
+.g2s{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bl{display:grid;gap:9px}.bl div{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.bl i{grid-column:1/-1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}.bl i s{display:block;height:100%;background:var(--gold)}
+.bl .none{color:var(--muted)}
+svg.ch{width:100%;height:170px;display:block}
+@media(max-width:820px){.tabs{padding:0 16px}.g2s{grid-template-columns:1fr}.vr{grid-template-columns:1fr 1fr}.vr .vp{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -101,7 +135,9 @@ main{max-width:1180px;margin:0 auto;padding:24px 28px 80px}
     <h1>Prestige Lab <span>· Panel</span></h1>
     <div><span id="who"></span><button class="ghost" id="out">Salir</button></div>
   </header>
+  <nav class="tabs" id="tabs"><button class="on" data-v="prod">Productos</button><button data-v="ped">Pedidos<span class="badge hide" id="pbadge"></span></button><button data-v="est">Estadísticas</button></nav>
   <main>
+   <div id="v-prod">
     <div class="tools">
       <input id="q" type="search" placeholder="Buscar por nombre, SKU o color" aria-label="Buscar">
       <select id="fc" aria-label="Categoría"><option value="">Todas las categorías</option><option value="H">Hombre</option><option value="M">Mujer</option><option value="C">Casual</option><option value="A">Accesorio</option></select>
@@ -110,6 +146,26 @@ main{max-width:1180px;margin:0 auto;padding:24px 28px 80px}
     </div>
     <p class="sum" id="sum"></p>
     <div id="list"></div>
+   </div>
+   <div id="v-ped" class="hide">
+    <div class="tools">
+      <input id="pq" type="search" placeholder="Buscar por código, cliente o producto" aria-label="Buscar pedidos">
+      <select id="pe" aria-label="Estado"><option value="pendiente">Pendientes</option><option value="">Todos</option><option value="cerrada">Cerradas</option><option value="cancelada">Canceladas</option><option value="devuelta">Devueltas</option></select>
+      <select id="po" aria-label="Origen"><option value="">Web y manual</option><option value="web">Desde la web</option><option value="manual">Manuales</option></select>
+      <button class="btn" id="mv">Registrar venta</button>
+    </div>
+    <p class="sum" id="psum"></p>
+    <div id="plist"></div>
+   </div>
+   <div id="v-est" class="hide">
+    <div class="tools" style="grid-template-columns:200px auto 1fr">
+      <select id="sr" aria-label="Periodo"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="0">Todo el historial</option></select>
+      <button class="ghost" id="sx">Actualizar</button>
+    </div>
+    <div id="kpis" class="kpis"></div>
+    <div class="pan"><h2 id="cht">Ingresos por día</h2><div id="chart"></div></div>
+    <div class="g2s" id="sg"></div>
+   </div>
   </main>
 </section>
 
@@ -160,6 +216,28 @@ main{max-width:1180px;margin:0 auto;padding:24px 28px 80px}
   </form>
   <div class="ft"><button class="ghost danger hide" id="dl" type="button">Eliminar</button><span style="flex:1"></span><button class="ghost" id="cn" type="button">Cancelar</button><button class="btn" id="sv" type="button">Guardar cambios</button></div>
 </aside>
+
+<dialog id="dc"><div class="dg">
+  <h2 id="dct">Cerrar venta</h2><p class="mut" id="dcs"></p>
+  <label class="f">Cliente o nota (opcional)<input id="dcc" maxlength="120"></label>
+  <label class="ck"><input type="checkbox" id="dco" checked> Ocultar de la tienda los productos que queden sin stock</label>
+  <div class="msg" id="dcm" role="alert"></div>
+  <div class="dgf"><button class="ghost" type="button" id="dcx">Volver</button><button class="btn" type="button" id="dcb">Cerrar venta y descontar stock</button></div>
+</div></dialog>
+<dialog id="dv"><div class="dg">
+  <h2>Registrar venta manual</h2>
+  <div class="g3">
+    <label class="f">Canal<select id="vc"><option>Tienda física</option><option>WhatsApp</option><option>Instagram</option><option>Otro</option></select></label>
+    <label class="f">Cliente (opcional)<input id="vn" maxlength="120"></label>
+    <label class="f">Fecha y hora<input type="datetime-local" id="vf"></label>
+  </div>
+  <div id="vl" class="dg"></div>
+  <button class="ghost" type="button" id="va">Añadir producto</button>
+  <div class="vtt">Total <b id="vtot">$0</b></div>
+  <label class="ck"><input type="checkbox" id="vo" checked> Ocultar de la tienda los productos que queden sin stock</label>
+  <div class="msg" id="vm" role="alert"></div>
+  <div class="dgf"><button class="ghost" type="button" id="vx">Cancelar</button><button class="btn" type="button" id="vb">Registrar venta</button></div>
+</div></dialog>
 <div id="toast" class="hide" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -198,7 +276,7 @@ async function enter(){
   if(error||!data){await sb.auth.signOut();$('#lm').textContent='Esta cuenta no tiene permisos de administrador.';return}
   $('#who').textContent=session.user.email;
   $('#login').classList.add('hide');$('#app').classList.remove('hide');
-  load();
+  load();loadOrders();setInterval(pollPend,45000);
 }
 async function load(){
   const {data,error}=await sb.from('productos_base').select('*,variantes(talla,stock)').order('created_at',{ascending:false}).order('sku_base');
@@ -321,6 +399,128 @@ $('#dl').onclick=async()=>{
   if(error)return toast('No se pudo eliminar: '+error.message,1);
   closeEd();toast('Producto eliminado');load();
 };
+
+/* ---------- pestañas ---------- */
+$('#tabs').onclick=e=>{const b=e.target.closest('button');if(b)setTab(b.dataset.v)};
+function setTab(v){['prod','ped','est'].forEach(k=>$('#v-'+k).classList.toggle('hide',k!==v));
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='ped')renderOrders();if(v==='est')renderStats()}
+const sum=(a,f)=>a.reduce((t,x)=>t+f(x),0);
+const when=t=>t?new Date(t).toLocaleString('es-CO',{timeZone:'America/Bogota',dateStyle:'medium',timeStyle:'short'}):'';
+const bog=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:'America/Bogota'});
+const TL=t=>t==='UNICA'?'Única':t;
+async function fetchAll(mk){let all=[],f=0;for(;;){const {data,error}=await mk().range(f,f+999);if(error)throw error;all=all.concat(data);if(data.length<1000||all.length>=10000)return all;f+=1000}}
+
+/* ---------- pedidos ---------- */
+let orders=[];
+async function loadOrders(){
+  try{orders=await fetchAll(()=>sb.from('pedidos').select('*,pedido_items(*)').order('created_at',{ascending:false}))}
+  catch(e){return toast('No se pudieron cargar los pedidos: '+e.message,1)}
+  badge();if(!$('#v-ped').classList.contains('hide'))renderOrders();if(!$('#v-est').classList.contains('hide'))renderStats();
+}
+function badge(){const n=orders.filter(o=>o.estado==='pendiente').length;$('#pbadge').textContent=n;$('#pbadge').classList.toggle('hide',!n)}
+async function pollPend(){
+  if(document.hidden)return;
+  const {count}=await sb.from('pedidos').select('id',{count:'exact',head:true}).eq('estado','pendiente');
+  if(count!==null&&count!==orders.filter(o=>o.estado==='pendiente').length)loadOrders();
+}
+function renderOrders(){
+  const q=$('#pq').value.trim().toLowerCase(),e=$('#pe').value,o=$('#po').value;
+  const L=orders.filter(x=>(!e||x.estado===e)&&(!o||x.origen===o)&&(!q||(x.codigo+' '+(x.cliente||'')+' '+x.pedido_items.map(i=>i.nombre+' '+i.sku).join(' ')).toLowerCase().includes(q)));
+  const pend=orders.filter(x=>x.estado==='pendiente');
+  $('#psum').innerHTML=`<b>${pend.length}</b> pendientes por ${money(sum(pend,x=>+x.total))} · <b>${orders.filter(x=>x.estado==='cerrada').length}</b> ventas cerradas`;
+  $('#plist').innerHTML=L.length?L.map(x=>{
+    const it=x.pedido_items.map(i=>`${i.qty}× ${esc(i.nombre)} <span class="mut">(${TL(i.talla)}${i.precio_unit?' · '+money(i.precio_unit):''})</span>`).join('<br>');
+    const a=x.estado==='pendiente'?`<button class="btn" data-a="c" data-id="${x.id}">Cerrar venta</button><button class="ghost danger" data-a="x" data-id="${x.id}">Cancelar</button>`
+      :x.estado==='cerrada'?`<button class="ghost danger" data-a="r" data-id="${x.id}">Registrar devolución</button>`:'';
+    return `<div class="ord ${x.solicitado_at&&x.estado==='pendiente'?'hot':''}"><div class="oh"><b>${esc(x.codigo)}</b><span class="pill ${x.estado}">${x.estado[0].toUpperCase()+x.estado.slice(1)}</span><span class="mut">${esc(x.canal)} · ${when(x.created_at)}</span>${x.solicitado_at&&x.estado==='pendiente'?'<span class="pill pendiente">Pidió por WhatsApp</span>':''}${x.cliente?`<span class="mut">· ${esc(x.cliente)}</span>`:''}</div>
+      <div class="oi">${it}</div><div class="oa"><span class="tot">${money(x.total)}</span>${a}</div></div>`}).join(''):'<div class="empty">No hay pedidos con esos filtros.</div>';
+}
+['#pq','#pe','#po'].forEach(s=>$(s).addEventListener('input',renderOrders));
+let acting=null;
+$('#plist').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;const o=orders.find(x=>x.id===b.dataset.id);
+  if(b.dataset.a==='c'){acting=o;$('#dcs').textContent=`${o.codigo} · ${o.pedido_items.length} producto(s) · ${money(o.total)}. Al cerrar se descuenta el stock.`;$('#dcc').value=o.cliente||'';$('#dcm').textContent='';$('#dc').showModal();return}
+  const r=b.dataset.a==='x'?['cancelar_pedido','Pedido cancelado','¿Cancelar '+o.codigo+'? No se descuenta stock.']:['devolver_pedido','Devolución registrada: el stock volvió al inventario','¿Registrar la devolución de '+o.codigo+'? El stock vuelve al inventario.'];
+  if(!confirm(r[2]))return;
+  const {error}=await sb.rpc(r[0],{p_id:o.id});
+  if(error)return toast(error.message,1);toast(r[1]);load();loadOrders();
+});
+$('#dcx').onclick=()=>$('#dc').close();
+$('#dcb').onclick=async()=>{
+  $('#dcb').disabled=true;
+  const {error}=await sb.rpc('cerrar_pedido',{p_id:acting.id,p_cliente:$('#dcc').value,p_ocultar:$('#dco').checked});
+  $('#dcb').disabled=false;
+  if(error){$('#dcm').textContent=error.message;return}
+  $('#dc').close();toast('Venta cerrada y stock descontado');load();loadOrders();
+};
+
+/* ---------- venta manual ---------- */
+const money0=n=>money(n||0);
+function vTotal(){$('#vtot').textContent=money0(sum([...document.querySelectorAll('.vr')],r=>(+r.querySelector('.vq').value||0)*(+r.querySelector('.vpr').value||0)))}
+function vRow(){
+  const d=document.createElement('div');d.className='vr';
+  d.innerHTML=`<select class="vp" aria-label="Producto"><option value="">Producto…</option>${items.slice().sort((a,b)=>a.nombre_producto.localeCompare(b.nombre_producto)).map(p=>`<option value="${p.id}">${esc(p.nombre_producto)} · ${esc(p.sku_base)}</option>`).join('')}</select><select class="vt" aria-label="Talla"></select><input class="vq" type="number" min="1" value="1" aria-label="Cantidad"><input class="vpr" type="number" min="0" step="1000" aria-label="Precio unitario"><button type="button" class="ghost" aria-label="Quitar">×</button>`;
+  d.querySelector('.vp').onchange=e=>{const p=items.find(x=>x.id===e.target.value),t=d.querySelector('.vt');
+    if(!p){t.innerHTML='';return}
+    const v=Object.fromEntries(p.variantes.map(x=>[x.talla,x.stock]));
+    t.innerHTML=(p.talla_unica?['UNICA']:['S','M','L','XL']).map(k=>`<option value="${k}">${TL(k)} (${v[k]||0})</option>`).join('');
+    d.querySelector('.vpr').value=p.precio;vTotal()};
+  d.addEventListener('input',vTotal);d.querySelector('button').onclick=()=>{d.remove();vTotal()};
+  $('#vl').appendChild(d);
+}
+$('#mv').onclick=()=>{
+  $('#vl').innerHTML='';vRow();$('#vn').value='';$('#vm').textContent='';vTotal();
+  const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset());$('#vf').value=n.toISOString().slice(0,16);$('#dv').showModal();
+};
+$('#va').onclick=vRow;$('#vx').onclick=()=>$('#dv').close();
+$('#vb').onclick=async()=>{
+  const lines=[...document.querySelectorAll('.vr')].filter(r=>r.querySelector('.vp').value).map(r=>({producto_id:r.querySelector('.vp').value,talla:r.querySelector('.vt').value,qty:+r.querySelector('.vq').value||1,precio_unit:+r.querySelector('.vpr').value||0}));
+  if(!lines.length){$('#vm').textContent='Elige al menos un producto.';return}
+  $('#vb').disabled=true;
+  const {error}=await sb.rpc('registrar_venta_manual',{p:{items:lines,canal:$('#vc').value,cliente:$('#vn').value,fecha:$('#vf').value?new Date($('#vf').value).toISOString():null,ocultar:$('#vo').checked}});
+  $('#vb').disabled=false;
+  if(error){$('#vm').textContent=error.message;return}
+  $('#dv').close();toast('Venta registrada y stock descontado');load();loadOrders();
+};
+
+/* ---------- estadísticas ---------- */
+$('#sr').onchange=$('#sx').onclick=()=>loadOrders().then(renderStats);
+function bars(title,rows,fmt){
+  const mx=Math.max(1,...rows.map(r=>r[1]));
+  return `<div class="pan"><h2>${title}</h2><div class="bl">${rows.length?rows.map(r=>`<div><span>${esc(r[0])}</span><span>${fmt?fmt(r[1]):r[1]}${r[2]?` <span class="mut">· ${r[2]}</span>`:''}</span><i><s style="width:${r[1]/mx*100}%"></s></i></div>`).join(''):'<div class="none">Todavía no hay datos en este periodo.</div>'}</div></div>`}
+function group(list,key,val){const m={};list.forEach(i=>{const k=key(i);m[k]=(m[k]||0)+val(i)});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
+async function renderStats(){
+  const days=+$('#sr').value,now=Date.now(),from=days?now-days*864e5:0,prev=days?from-days*864e5:0;
+  const inR=(t,a=from,b=Infinity)=>t&&new Date(t).getTime()>=a&&new Date(t).getTime()<b;
+  const sold=orders.filter(o=>o.estado==='cerrada'&&inR(o.cerrado_at)),ret=orders.filter(o=>o.estado==='devuelta'&&inR(o.devuelto_at));
+  const carts=orders.filter(o=>o.origen==='web'&&inR(o.created_at)),pend=orders.filter(o=>o.estado==='pendiente');
+  const rev=sum(sold,o=>+o.total),sI=sold.flatMap(o=>o.pedido_items),units=sum(sI,i=>i.qty);
+  const pSold=days?orders.filter(o=>o.estado==='cerrada'&&inR(o.cerrado_at,prev,from)):[],pRev=sum(pSold,o=>+o.total);
+  const dl=!days?'':pRev?(()=>{const d=(rev-pRev)/pRev*100;return `<span class="${d>=0?'up':'dn'}">${d>=0?'+':''}${Math.round(d)}% vs periodo anterior</span>`})():'<span>Sin periodo anterior para comparar</span>';
+  let vis=[];try{const {data}=await sb.rpc('visitas_por_dia',{p_desde:from?bog(from):'2000-01-01'});vis=data||[]}catch(_){}
+  const nv=sum(vis,v=>+v.n),cc=carts.filter(o=>o.estado==='cerrada').length;
+  const K=(a,b,c)=>`<div class="kpi"><small>${a}</small><b>${b}</b><span>${c||'&nbsp;'}</span></div>`;
+  $('#kpis').innerHTML=K('Ingresos',money(rev),dl)+K('Ventas cerradas',sold.length,sold.filter(o=>o.origen==='manual').length+' manuales')+K('Ticket promedio',money(sold.length?Math.round(rev/sold.length):0))+K('Unidades vendidas',units)
+    +K('Pendientes ahora',pend.length,money(sum(pend,o=>+o.total))+' por cerrar')+K('Devoluciones',ret.length,money(sum(ret,o=>+o.total)))
+    +K('Visitas',nv,'sesiones únicas por día')+K('Carritos creados',carts.length,nv?Math.round(carts.length/nv*100)+'% de las visitas':'')+K('Carritos que cerraron',cc,carts.length?Math.round(cc/carts.length*100)+'% de conversión':'');
+  /* gráfico por día */
+  const n=Math.min(days||90,90),byDay={};sold.forEach(o=>{const k=bog(o.cerrado_at);byDay[k]=(byDay[k]||0)+ +o.total});
+  const ds=[...Array(n)].map((_,i)=>bog(now-(n-1-i)*864e5)),mx=Math.max(1,...ds.map(d=>byDay[d]||0)),w=1000/n;
+  $('#cht').textContent=`Ingresos por día (últimos ${n} días)`;
+  $('#chart').innerHTML=`<svg class="ch" viewBox="0 0 1000 170" preserveAspectRatio="none" role="img" aria-label="Ingresos por día">${ds.map((d,i)=>{const h=(byDay[d]||0)/mx*150;return `<rect x="${i*w+w*.12}" y="${160-h}" width="${w*.76}" height="${Math.max(h,byDay[d]?2:0)}" fill="#D4AF37"><title>${d}: ${money(byDay[d]||0)}</title></rect>`}).join('')}<line x1="0" x2="1000" y1="160" y2="160" stroke="#22355c"/></svg><div class="mut" style="display:flex;justify-content:space-between;font-size:12px"><span>${ds[0]}</span><span>Máximo: ${money(mx)}</span><span>${ds[n-1]}</span></div>`;
+  /* listas */
+  const top=group(sI,i=>i.nombre,i=>i.qty).slice(0,8).map(r=>[r[0],r[1],money(sum(sI.filter(i=>i.nombre===r[0]),i=>i.qty*i.precio_unit))]);
+  const lost=group(orders.filter(o=>['cancelada','pendiente'].includes(o.estado)&&inR(o.created_at)).flatMap(o=>o.pedido_items),i=>i.nombre,i=>i.qty).slice(0,6);
+  const low=items.filter(p=>p.estado==='Activo'&&stockOf(p)<=1).sort((a,b)=>stockOf(a)-stockOf(b)).slice(0,8).map(p=>[p.nombre_producto,stockOf(p)]);
+  $('#sg').innerHTML=bars('Lo que más se vende (unidades)',top)
+    +bars('Embudo de la web',[['Visitas',nv],['Carritos creados',carts.length],['Ventas cerradas',cc]])
+    +bars('Ingresos por categoría',group(sI,i=>CATS[i.categoria]||'Sin categoría',i=>i.qty*i.precio_unit),money)
+    +bars('Ingresos por canal',group(sold,o=>o.canal,o=>+o.total),money)
+    +bars('Unidades por talla',group(sI,i=>TL(i.talla),i=>i.qty))
+    +bars('Pedidos que no se concretaron (carritos cancelados o abiertos)',lost)
+    +bars('Stock por revisar (0 o 1 unidad)',low);
+}
 enter();
 </script>
 </body>
